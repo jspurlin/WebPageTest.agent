@@ -9,7 +9,7 @@ More information about Polyform licenses, including the Shield License, can be f
 
 We chose the Polyform Shield license because it provides a standard community-accepted license that provides the necessary protections for a commercial product while keeping the code as open as possible. 
 
-A prior version of the WebPageTest code was released under the BSD and Apache 2.0 licenses.  A branch of the code under that license is available [here](https://github.com/WPO-Foundation/webpagetest/tree/apache) for anyone in the community who wants to continue to use the code under that license or contribute to its maintenance. 
+A prior version of the WebPageTest code was released under the BSD and Apache 2.0 licenses.  A branch of the code under that license is available [here](https://github.com/WPO-Foundation/wptagent/tree/apache) for anyone in the community who wants to continue to use the code under that license or contribute to its maintenance. 
 
 ## What does this mean for my access and usage of the source code? 
 

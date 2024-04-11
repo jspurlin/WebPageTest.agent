@@ -1,0 +1,58 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python application
+
+on:
+  push:
+    branches: [ master, patch-2]
+  pull_request:
+    branches: [ master, patch-2]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install apt dependencies
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: pylint apt-transport-https xserver-xorg-video-dummy xvfb gnupg2 python3-ujson imagemagick dbus-x11 traceroute software-properties-common psmisc libnss3-tools iproute2 net-tools openvpn libtiff5-dev libjpeg-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python3-tk python3-dev libavutil-dev libmp3lame-dev libx264-dev yasm autoconf automake build-essential libass-dev libfreetype6-dev libtheora-dev libtool libvorbis-dev pkg-config texi2html libtext-unidecode-perl python3-numpy python3-scipy perl adb ethtool nodejs cmake libsdl2-dev libva-dev libvdpau-dev libxcb1-dev libxcb-shm0-dev libxcb-xfixes0-dev texinfo wget ttf-mscorefonts-installer fonts-noto fonts-roboto fonts-open-sans
+        version: 1.0
+
+    - name: Install pip dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 install -r .github/workflows/requirements.txt
+
+    - name: Analysing the code with pylint
+      run: |
+       find -name "*.py" -not -path "./ws4py/*" -exec pylint {} --errors-only \;
+
+    - name: Test with pytest
+      run: |
+        pytest -vv
+        
+    - name: Chrome Run # We could add Local Tests here
+      run: |
+        python3 wptagent.py -vvvv --location Test --xvfb --noidle --testurl 'https://www.google.com/' --browser Chrome
+
+    - name: FireFox Run # We could add Local Tests here
+      run: |
+        python3 wptagent.py -vvvv --location Test --xvfb --noidle --testurl 'https://www.google.com/' --browser Firefox
+
+    - name: Edge Run # We could add Local Tests here
+      run: |
+        python3 wptagent.py -vvvv --location Test --xvfb --noidle --testurl 'https://www.google.com/' --browser Edge
+    

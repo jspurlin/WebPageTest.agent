@@ -1,7 +1,6 @@
-Copyright (c) 2020, Catchpoint Systems Inc.
-Copyright (c) 2010-2020, WebPageTest LLC.
-Copyright (c) 2010-2018, Google Inc.
-Copyright (c) 2005-2010, AOL LLC.
+Copyright 2020, Catchpoint Systems Inc.
+Copyright 2019 WebPageTest LLC.
+Copyright 2017, Google Inc.
 
 Licensed under the PolyForm Shield License 1.0.0 (the "License");
 you may not use this file except in compliance with the License.

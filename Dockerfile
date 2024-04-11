@@ -1,84 +1,71 @@
-FROM php:7.4-apache
-MAINTAINER iteratec WPT Team <wpt@iteratec.de>
+### IMPORTANT DOCKER COMMANDS ###
 
-RUN chmod o+r /etc/resolv.conf
+###     docker images                               - List images available
+###     docker build <GITHUB-REPO-LINK> -t TAGNAME  - Builds the Dockerfile from the github repo
+###     docker ps                                   - List running images
+###     docker stop <IMAGE ID || IMAGE NAME>        - Stops running image with either --name <IMAGE NAME> || IMAGE ID>
+###     docker run -it -d TAGNAME /bin/bash         - Runs bash
+###     docker exec -it <IMAGE ID> /bin/bash        - Connects to bash for terminal execution (Needs to be running first)
 
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -q -y --allow-unauthenticated \
-    imagemagick \
-    libjpeg-progs \
-    exiftool \
-    unzip \
-    wget \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    libpng-dev \
-    libcurl4-openssl-dev \
-    python \
-    python-pillow \
-    cron \
-    beanstalkd \
-    supervisor && \
-    \
-    DEBIAN_FRONTEND=noninteractive apt-get install -q -y --allow-downgrades --allow-change-held-packages \
-    ffmpeg && \
-    apt-get clean && \
-    apt-get autoclean
+### INSTALLING METHOD ###
 
-RUN apt-get install libzip-dev -y
+###     Recommend to install with "docker build <GITHUB-REPO-LINK> -t TAGNAME",
+###     grabs the latest copy of WPT and build time on average takes 10 minutes. 
 
-RUN docker-php-ext-configure gd --with-freetype=/usr/include/ --with-jpeg=/usr/include/ && \
-    docker-php-ext-install gd && \
-    docker-php-ext-install zip && \
-    docker-php-ext-install curl && \
-    a2enmod expires headers rewrite
+FROM ubuntu:22.04 as production
 
-RUN apt-get install -y libmagickwand-6.q16-dev --no-install-recommends && \
-    ln -s /usr/lib/x86_64-linux-gnu/ImageMagick-6.8.9/bin-Q16/MagickWand-config /usr/bin && \
-    pecl install imagick && \
-    echo "extension=imagick.so" > /usr/local/etc/php/conf.d/ext-imagick.ini
+### TIMEZONE INSIDE THE CONTAINER ###
+ARG TIMEZONE=UTC
 
-COPY www /var/www/html
+### UPDATE ###
+RUN curl -sL https://deb.nodesource.com/setup_16.x | bash -
+RUN apt update 
 
-RUN chown -R www-data:www-data /var/www/html && \
-    cd /var/www/html && \
-    chmod 0777 dat && \
-    chmod 0777 -R work && \
-    chmod 0777 logs && \
-    mkdir -p results && \
-    chmod 0777 -R results && \
-    \
-    cd /var/www/html/settings && \
-    mv settings.ini.sample settings.ini && \
-    mv connectivity.ini.sample connectivity.ini && \
-    \
-    mkdir -p /var/log/supervisor && \
-    mkdir -p /scripts
+### INSTALL APT-GET LIBS ###
+# DEBIAN_FRONTEND prevents interactive prompts while installing
+# set default timezone beforehand to avoid user interaction for tzdata package
+RUN ln -fs /usr/share/zoneinfo/$TIMEZONE /etc/localtime && DEBIAN_FRONTEND=noninteractive apt install -y \
+    python3 python3-pip python3-ujson \
+    imagemagick dbus-x11 traceroute software-properties-common psmisc libnss3-tools iproute2 net-tools openvpn \
+    libtiff5-dev libjpeg-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python3-tk \
+    python3-dev libavutil-dev libmp3lame-dev libx264-dev yasm autoconf automake build-essential libass-dev libfreetype6-dev libtheora-dev \
+    libtool libvorbis-dev pkg-config texi2html libtext-unidecode-perl python3-numpy python3-scipy perl \
+    adb ethtool nodejs cmake git-core libsdl2-dev libva-dev libvdpau-dev libxcb1-dev libxcb-shm0-dev libxcb-xfixes0-dev texinfo wget \
+    ttf-mscorefonts-installer fonts-noto fonts-roboto fonts-open-sans ffmpeg npm sudo curl xvfb
 
-COPY docker/server/config/locations.ini /var/www/html/settings/locations.ini
-COPY docker/server/config/php.ini /usr/local/etc/php/
+### UPDATE FONT CACHE ###
+RUN fc-cache -f -v
 
-RUN pear config-set php_ini /usr/local/etc/php/php.ini
+### INSTALLING LIGHTHOUSE FROM NPM ###
+RUN npm install -g lighthouse
 
-COPY docker/server/config/apache2.conf /etc/apache2/apache2.conf
-COPY docker/server/config/crontab /etc/crontab
+### INSTALLING CHROME BROWSER ###
+RUN curl -o /tmp/google-chrome-stable_current_amd64.deb  https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt install -y /tmp/google-chrome-stable_current_amd64.deb && rm /tmp/google-chrome-stable_current_amd64.deb
 
-# config supervisor to run apache, cron, beanstalkd, ec2init
-COPY docker/server/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY docker/server/config/supervisord/supervisord_apache.conf /etc/supervisor/conf.d/supervisord_apache.conf
-COPY docker/server/config/supervisord/supervisord_cron.conf /etc/supervisor/conf.d/supervisord_cron.conf
-COPY docker/server/config/supervisord/supervisord_beanstalkd.conf /etc/supervisor/conf.d/supervisord_beanstalkd.conf
-COPY docker/server/config/supervisord/supervisord_ec2init.conf /etc/supervisor/conf.d/supervisord_ec2init.conf
+### UPGRADING PIP AND INSTALLING REQUIRED PACKAGES ###
+COPY /.github/workflows/requirements.txt /tmp/agent_requirements.txt
+RUN python3 -m pip install --upgrade --user pip && \
+    python3 -m pip install --user -r /tmp/agent_requirements.txt && \
+    rm /tmp/agent_requirements.txt
 
-# copy WPT scripts, set executable and create crontab
-COPY docker/server/scripts/ /scripts/
-RUN chmod 755 /scripts/* && \
-    crontab /etc/crontab
+### COPYING ENTIRE DIR TO LOCAL DOCKER /wptagent ###
+# see .dockerignore for filterd out folders
+# source copy last so we don't need to rebuild all the other layers 
+COPY / /wptagent
+WORKDIR /wptagent
 
-VOLUME /var/www/html/settings
-VOLUME /var/www/html/results
-VOLUME /var/www/html/logs
+ENTRYPOINT ["/bin/sh", "/wptagent/docker/linux-headless/entrypoint.sh"]
 
-EXPOSE 80 443
+### DEBUG CONTAINER ###
+FROM production as debug
 
-CMD ["/usr/bin/supervisord"]
+### INSTALLING DEBUG DEPENDENCIES ###
+RUN pip install debugpy
+
+### COPY DEBUG AGENT AND MOVE REAL ONE ###
+RUN mv wptagent.py wptagent_starter.py
+COPY wptagent_debug.py wptagent.py
+
+### SETTING PRODUCTION BUILD AS DEFAULT ###
+FROM production
